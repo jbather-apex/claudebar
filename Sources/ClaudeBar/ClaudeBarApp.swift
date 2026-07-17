@@ -24,15 +24,28 @@ struct ClaudeBarApp: App {
 struct MenuBarLabel: View {
     @ObservedObject var store: SessionStore
 
+    // Template PNG rendered from the app logo; falls back to SF Symbols
+    // when running without a bundle (`swift run`).
+    static let logo: NSImage? = {
+        guard let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png"),
+              let image = NSImage(contentsOf: url) else { return nil }
+        image.isTemplate = true
+        image.size = NSSize(width: 18, height: 18)
+        return image
+    }()
+
     var body: some View {
         let count = store.attentionCount
-        if count > 0 {
+        if let logo = Self.logo {
+            Image(nsImage: logo)
+            if count > 0 {
+                Text("\(count)")
+            }
+        } else if count > 0 {
             Image(systemName: "exclamationmark.bubble.fill")
             Text("\(count)")
-        } else if store.sessions.isEmpty {
-            Image(systemName: "moon.zzz")
         } else {
-            Image(systemName: "sparkles")
+            Image(systemName: store.sessions.isEmpty ? "moon.zzz" : "sparkles")
         }
     }
 }
