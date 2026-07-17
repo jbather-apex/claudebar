@@ -4,24 +4,42 @@ import AppKit
 
 let outDir = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "Assets"
 
-/// Eight-ray asterisk burst — Claude-flavored, geometric rather than a copy
-/// of the actual trademark. Rays are round-capped capsules from the center.
+/// Friendly bot head: antenna, rounded head, punched-out eyes and mouth.
+/// Rendered into its own layer so the punches only cut the bot, not the
+/// background it's later composited onto.
 func drawSparkles(size: CGFloat, color: NSColor) {
+    let bot = NSImage(size: NSSize(width: size, height: size))
+    bot.lockFocus()
+    drawBotShapes(size: size, color: color)
+    bot.unlockFocus()
+    bot.draw(in: CGRect(x: 0, y: 0, width: size, height: size),
+             from: .zero, operation: .sourceOver, fraction: 1)
+}
+
+func drawBotShapes(size: CGFloat, color: NSColor) {
+    let s = size
     color.setFill()
-    let center = CGPoint(x: size * 0.5, y: size * 0.5)
-    let outer = size * 0.315
-    let width = size * 0.105
-    for i in 0..<8 {
-        let angle = CGFloat(i) * .pi / 4
-        let ray = NSBezierPath(
-            roundedRect: CGRect(x: 0, y: -width / 2, width: outer, height: width),
-            xRadius: width / 2, yRadius: width / 2)
-        let transform = NSAffineTransform()
-        transform.translateX(by: center.x, yBy: center.y)
-        transform.rotate(byRadians: angle)
-        ray.transform(using: transform as AffineTransform)
-        ray.fill()
-    }
+
+    // Antenna: ball + stem.
+    NSBezierPath(ovalIn: CGRect(x: s * 0.455, y: s * 0.76, width: s * 0.09, height: s * 0.09)).fill()
+    NSBezierPath(
+        roundedRect: CGRect(x: s * 0.485, y: s * 0.66, width: s * 0.03, height: s * 0.12),
+        xRadius: s * 0.015, yRadius: s * 0.015).fill()
+
+    // Head.
+    NSBezierPath(
+        roundedRect: CGRect(x: s * 0.20, y: s * 0.18, width: s * 0.60, height: s * 0.50),
+        xRadius: s * 0.13, yRadius: s * 0.13).fill()
+
+    // Punch out eyes and mouth.
+    NSGraphicsContext.current!.compositingOperation = .destinationOut
+    let eye = s * 0.115
+    NSBezierPath(ovalIn: CGRect(x: s * 0.315, y: s * 0.435, width: eye, height: eye)).fill()
+    NSBezierPath(ovalIn: CGRect(x: s * 0.57, y: s * 0.435, width: eye, height: eye)).fill()
+    NSBezierPath(
+        roundedRect: CGRect(x: s * 0.375, y: s * 0.27, width: s * 0.25, height: s * 0.055),
+        xRadius: s * 0.0275, yRadius: s * 0.0275).fill()
+    NSGraphicsContext.current!.compositingOperation = .sourceOver
 }
 
 func drawAppIcon(size: CGFloat) {

@@ -38,14 +38,16 @@ struct MenuBarLabel: View {
         let count = store.attentionCount
         if let logo = Self.logo {
             Image(nsImage: logo)
-            if count > 0 {
-                Text("\(count)")
-            }
-        } else if count > 0 {
-            Image(systemName: "exclamationmark.bubble.fill")
-            Text("\(count)")
         } else {
             Image(systemName: store.sessions.isEmpty ? "moon.zzz" : "sparkles")
+        }
+        if count > 1 {
+            Text("\(count)")
+            Image(systemName: "exclamationmark")
+                .fontWeight(.heavy)
+        } else if count == 1 {
+            Image(systemName: "exclamationmark")
+                .fontWeight(.heavy)
         }
     }
 }
