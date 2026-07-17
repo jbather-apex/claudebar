@@ -4,36 +4,24 @@ import AppKit
 
 let outDir = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "Assets"
 
-/// Four-point sparkle (✦) with concave edges.
-func sparklePath(center c: CGPoint, radius r: CGFloat) -> NSBezierPath {
-    let k = r * 0.22
-    let top = CGPoint(x: c.x, y: c.y + r)
-    let right = CGPoint(x: c.x + r, y: c.y)
-    let bottom = CGPoint(x: c.x, y: c.y - r)
-    let left = CGPoint(x: c.x - r, y: c.y)
-    let path = NSBezierPath()
-    path.move(to: top)
-    path.curve(to: right,
-               controlPoint1: CGPoint(x: c.x + k, y: c.y + k),
-               controlPoint2: CGPoint(x: c.x + k, y: c.y + k))
-    path.curve(to: bottom,
-               controlPoint1: CGPoint(x: c.x + k, y: c.y - k),
-               controlPoint2: CGPoint(x: c.x + k, y: c.y - k))
-    path.curve(to: left,
-               controlPoint1: CGPoint(x: c.x - k, y: c.y - k),
-               controlPoint2: CGPoint(x: c.x - k, y: c.y - k))
-    path.curve(to: top,
-               controlPoint1: CGPoint(x: c.x - k, y: c.y + k),
-               controlPoint2: CGPoint(x: c.x - k, y: c.y + k))
-    path.close()
-    return path
-}
-
+/// Eight-ray asterisk burst — Claude-flavored, geometric rather than a copy
+/// of the actual trademark. Rays are round-capped capsules from the center.
 func drawSparkles(size: CGFloat, color: NSColor) {
     color.setFill()
-    // Main sparkle low-left of center, companion top-right.
-    sparklePath(center: CGPoint(x: size * 0.44, y: size * 0.44), radius: size * 0.30).fill()
-    sparklePath(center: CGPoint(x: size * 0.72, y: size * 0.72), radius: size * 0.13).fill()
+    let center = CGPoint(x: size * 0.5, y: size * 0.5)
+    let outer = size * 0.315
+    let width = size * 0.105
+    for i in 0..<8 {
+        let angle = CGFloat(i) * .pi / 4
+        let ray = NSBezierPath(
+            roundedRect: CGRect(x: 0, y: -width / 2, width: outer, height: width),
+            xRadius: width / 2, yRadius: width / 2)
+        let transform = NSAffineTransform()
+        transform.translateX(by: center.x, yBy: center.y)
+        transform.rotate(byRadians: angle)
+        ray.transform(using: transform as AffineTransform)
+        ray.fill()
+    }
 }
 
 func drawAppIcon(size: CGFloat) {
