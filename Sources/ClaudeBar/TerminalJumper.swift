@@ -52,19 +52,22 @@ enum TerminalJumper {
 
         // Find a client showing this session; retarget the first client if none is.
         var clientTty: String?
-        if let clients = run(tmux, ["list-clients", "-F", "#{client_tty}|#{session_name}"]) {
-            let lines = clients.split(separator: "\n").map(String.init)
-            if let attached = lines.first(where: { $0.hasSuffix("|" + session) }) {
-                clientTty = String(attached.split(separator: "|")[0])
-            } else if let first = lines.first {
-                let ctty = String(first.split(separator: "|")[0])
-                _ = run(tmux, ["switch-client", "-c", ctty, "-t", session])
-                clientTty = ctty
+        var clientPid: Int32?
+        if let clients = run(tmux, ["list-clients", "-F", "#{client_tty}|#{client_pid}|#{session_name}"]) {
+            let lines = clients.split(separator: "\n").map { $0.split(separator: "|").map(String.init) }
+            let client = lines.first(where: { $0.count >= 3 && $0[2] == session }) ?? lines.first
+            if let client, client.count >= 3 {
+                clientTty = client[0]
+                clientPid = Int32(client[1])
+                if client[2] != session {
+                    _ = run(tmux, ["switch-client", "-c", client[0], "-t", session])
+                }
             }
         }
-        if let clientTty {
-            _ = focusTerminalTab(tty: clientTty)
-        }
+        // Focus the terminal hosting the client: scriptable terminals by tty;
+        // anything else (Ghostty, kitty, …) by activating the ancestor app.
+        if let clientTty, focusTerminalTab(tty: clientTty) { return true }
+        if let clientPid { activateAncestorApp(ofPid: clientPid) }
         return true
     }
 
@@ -131,7 +134,16 @@ enum TerminalJumper {
             else { break }
             if let app = NSRunningApplication(processIdentifier: ppid),
                app.bundleIdentifier != nil, app.activationPolicy == .regular {
-                DispatchQueue.main.async { app.activate() }
+                DispatchQueue.main.async {
+                    // Cooperative activation can be refused for a background
+                    // (menu bar) app; opening the bundle URL foregrounds the
+                    // already-running instance as a fallback.
+                    if !app.activate(options: [.activateAllWindows]),
+                       let url = app.bundleURL {
+                        NSWorkspace.shared.openApplication(
+                            at: url, configuration: NSWorkspace.OpenConfiguration())
+                    }
+                }
                 return
             }
             current = ppid
