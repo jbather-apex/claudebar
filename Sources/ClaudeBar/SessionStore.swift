@@ -141,12 +141,14 @@ final class SessionStore: ObservableObject {
         let fileStateAt = record.statusUpdatedAtDate ?? .distantPast
         var state = fileState ?? .working
         var message: String?
-        var waitingSince: Date?
+        // The file's `status: "waiting"` is generic; its statusUpdatedAt is the
+        // moment the prompt appeared, so it seeds the waiting timer.
+        var waitingSince: Date? = fileState?.needsAttention == true ? fileStateAt : nil
 
         if var ev = eventStates[record.sessionId] {
-            // A "busy" status newer than the event means the prompt was
+            // A busy/idle status newer than the event means the prompt was
             // answered — the event overlay is stale.
-            let fileClearsWaiting = fileState == .working
+            let fileClearsWaiting = (fileState == .working || fileState == .idle)
                 && fileStateAt > ev.timestamp
             if ev.state.needsAttention && fileClearsWaiting {
                 ev.state = .working
@@ -154,18 +156,17 @@ final class SessionStore: ObservableObject {
                 ev.waitingSince = nil
                 eventStates[record.sessionId] = ev
             }
-            if ev.timestamp >= fileStateAt || fileState == nil {
+            if ev.state.needsAttention {
+                // Hook events know the precise kind (permission vs input) and
+                // carry the message — they beat the file's generic "waiting"
+                // regardless of which timestamp is a hair newer.
                 state = ev.state
                 message = ev.message
-                waitingSince = ev.waitingSince
+                waitingSince = ev.waitingSince ?? waitingSince
+            } else if fileState == nil
+                || (ev.timestamp >= fileStateAt && fileState?.needsAttention != true) {
+                state = ev.state
             }
-        }
-
-        // Waiting states from the session file itself (newer CLIs write these
-        // even without hooks installed).
-        if let fileState, fileState.needsAttention, fileStateAt > (waitingSince ?? .distantPast) {
-            state = fileState
-            waitingSince = waitingSince ?? fileStateAt
         }
 
         return ClaudeSession(
@@ -182,7 +183,9 @@ final class SessionStore: ObservableObject {
 
     private func stateFromStatus(_ status: String?) -> SessionState? {
         guard let status = status?.lowercased(), !status.isEmpty else { return nil }
-        // Observed live on CLI 2.1.212: "busy", "idle", "awaiting permission".
+        // Observed live on CLI 2.1.212: "busy", "idle", and a generic "waiting"
+        // during a permission prompt (the file doesn't distinguish permission
+        // from other input waits — hook events refine that).
         if status.contains("permission") { return .needsPermission }
         if status.contains("wait") || status.contains("await") || status.contains("blocked") {
             return .needsInput

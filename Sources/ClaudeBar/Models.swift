@@ -14,7 +14,7 @@ enum SessionState: String {
         switch self {
         case .working: return "working"
         case .needsPermission: return "needs permission"
-        case .needsInput: return "needs input"
+        case .needsInput: return "waiting on you"
         case .idle: return "idle"
         }
     }
