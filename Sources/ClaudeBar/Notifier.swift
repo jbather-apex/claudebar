@@ -15,7 +15,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+            NSLog("ClaudeBar: notification auth granted=\(granted) error=\(String(describing: error))")
+        }
+        center.getNotificationSettings { settings in
+            NSLog("ClaudeBar: notification settings auth=\(settings.authorizationStatus.rawValue) alert=\(settings.alertSetting.rawValue)")
+        }
     }
 
     func notifyAttention(session: ClaudeSession) {
@@ -39,7 +44,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             identifier: "claudebar-\(session.sessionId)",
             content: content,
             trigger: nil)
-        UNUserNotificationCenter.current().add(request)
+        NSLog("ClaudeBar: posting notification for \(session.displayTitle) (\(session.state.rawValue))")
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error {
+                NSLog("ClaudeBar: notification add failed: \(error)")
+            }
+        }
     }
 
     // Show banners even while the app is "frontmost" (menu bar apps usually are not, but be safe).
