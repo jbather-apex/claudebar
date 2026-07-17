@@ -11,10 +11,61 @@ enum TerminalJumper {
                 activateAncestorApp(ofPid: pid)
                 return
             }
-            if isRunning(bundleId: "com.googlecode.iterm2"), jumpITerm(tty: tty) { return }
-            if isRunning(bundleId: "com.apple.Terminal"), jumpTerminal(tty: tty) { return }
+            // Inside tmux, `tty` is the pane's pty — switch tmux to that pane
+            // and then focus the terminal tab hosting the tmux client instead.
+            if jumpTmux(paneTty: tty) { return }
+            if focusTerminalTab(tty: tty) { return }
             activateAncestorApp(ofPid: pid)
         }
+    }
+
+    private static func focusTerminalTab(tty: String) -> Bool {
+        if isRunning(bundleId: "com.googlecode.iterm2"), jumpITerm(tty: tty) { return true }
+        if isRunning(bundleId: "com.apple.Terminal"), jumpTerminal(tty: tty) { return true }
+        return false
+    }
+
+    // MARK: - tmux
+
+    private static func tmuxBin() -> String? {
+        ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux", "/usr/bin/tmux"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// If `paneTty` belongs to a tmux pane: select its window+pane, point a
+    /// client at its session if none is, and focus the terminal tab running
+    /// that client. Returns false when the tty is not a tmux pane.
+    private static func jumpTmux(paneTty: String) -> Bool {
+        guard let tmux = tmuxBin(),
+              let panes = run(tmux, ["list-panes", "-a", "-F",
+                                     "#{pane_tty}|#{session_name}|#{window_index}|#{pane_id}"])
+        else { return false }
+        guard let paneLine = panes.split(separator: "\n")
+            .first(where: { $0.hasPrefix(paneTty + "|") })
+        else { return false }
+        let parts = paneLine.split(separator: "|").map(String.init)
+        guard parts.count >= 4 else { return false }
+        let session = parts[1], window = parts[2], paneId = parts[3]
+
+        _ = run(tmux, ["select-window", "-t", "\(session):\(window)"])
+        _ = run(tmux, ["select-pane", "-t", paneId])
+
+        // Find a client showing this session; retarget the first client if none is.
+        var clientTty: String?
+        if let clients = run(tmux, ["list-clients", "-F", "#{client_tty}|#{session_name}"]) {
+            let lines = clients.split(separator: "\n").map(String.init)
+            if let attached = lines.first(where: { $0.hasSuffix("|" + session) }) {
+                clientTty = String(attached.split(separator: "|")[0])
+            } else if let first = lines.first {
+                let ctty = String(first.split(separator: "|")[0])
+                _ = run(tmux, ["switch-client", "-c", ctty, "-t", session])
+                clientTty = ctty
+            }
+        }
+        if let clientTty {
+            _ = focusTerminalTab(tty: clientTty)
+        }
+        return true
     }
 
     /// `ps -o tty= -p PID` → "/dev/ttys012"

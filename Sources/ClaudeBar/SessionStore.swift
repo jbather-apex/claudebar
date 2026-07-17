@@ -19,6 +19,7 @@ final class SessionStore: ObservableObject {
     }
 
     private var eventStates: [String: EventState] = [:]
+    private var lastStates: [String: SessionState] = [:]
     private var titleCache: [String: String] = [:]
     private var titleLastAttempt: [String: Date] = [:]
     private var tailer: HookEventTailer?
@@ -83,10 +84,6 @@ final class SessionStore: ObservableObject {
         }
         eventStates[event.sessionId] = ev
         refresh()
-
-        if ev.state.needsAttention, let session = sessions.first(where: { $0.sessionId == event.sessionId }) {
-            notifier.notifyAttention(session: session)
-        }
     }
 
     // MARK: - Reconcile
@@ -126,6 +123,16 @@ final class SessionStore: ObservableObject {
             }
             return a.updatedAt > b.updatedAt
         }
+
+        // Notify on any transition into a waiting state, whether it came from
+        // a hook event or from the polled `status` field (works without hooks).
+        for session in next where session.state.needsAttention {
+            if lastStates[session.sessionId]?.needsAttention != true {
+                notifier.notifyAttention(session: session)
+            }
+        }
+        lastStates = Dictionary(uniqueKeysWithValues: next.map { ($0.sessionId, $0.state) })
+
         sessions = next
     }
 
@@ -175,6 +182,7 @@ final class SessionStore: ObservableObject {
 
     private func stateFromStatus(_ status: String?) -> SessionState? {
         guard let status = status?.lowercased(), !status.isEmpty else { return nil }
+        // Observed live on CLI 2.1.212: "busy", "idle", "awaiting permission".
         if status.contains("permission") { return .needsPermission }
         if status.contains("wait") || status.contains("await") || status.contains("blocked") {
             return .needsInput
