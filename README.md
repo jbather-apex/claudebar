@@ -12,7 +12,21 @@ are waiting on a permission approval or user input.
 - **Click a row / notification**: focuses the iTerm2 or Terminal.app tab running
   that session (matched by tty; best-effort, tmux panes not supported).
 
-## Build & run
+## Install
+
+Requires macOS 14+ and the Xcode Command Line Tools (`xcode-select --install`).
+
+```sh
+git clone https://github.com/jbather-apex/claudebar.git
+cd claudebar
+./scripts/install.sh   # builds and installs to /Applications, then launches
+```
+
+Building locally means no Gatekeeper/quarantine friction — there's nothing to
+right-click-open or notarize. To update, `git pull` and rerun the script.
+Turn on **Launch at login** from the popover footer.
+
+## Build & run (development)
 
 ```sh
 ./scripts/make-app.sh
