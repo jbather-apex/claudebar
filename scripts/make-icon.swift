@@ -4,42 +4,45 @@ import AppKit
 
 let outDir = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "Assets"
 
-/// Friendly bot head: antenna, rounded head, punched-out eyes and mouth.
-/// Rendered into its own layer so the punches only cut the bot, not the
-/// background it's later composited onto.
-func drawSparkles(size: CGFloat, color: NSColor) {
-    let bot = NSImage(size: NSSize(width: size, height: size))
-    bot.lockFocus()
-    drawBotShapes(size: size, color: color)
-    bot.unlockFocus()
-    bot.draw(in: CGRect(x: 0, y: 0, width: size, height: size),
-             from: .zero, operation: .sourceOver, fraction: 1)
+/// Eight-ray asterisk burst, round-capped capsule rays.
+func asterisk(center: CGPoint, outer: CGFloat, width: CGFloat, color: NSColor) {
+    color.setFill()
+    for i in 0..<8 {
+        let ray = NSBezierPath(
+            roundedRect: CGRect(x: 0, y: -width / 2, width: outer, height: width),
+            xRadius: width / 2, yRadius: width / 2)
+        let transform = NSAffineTransform()
+        transform.translateX(by: center.x, yBy: center.y)
+        transform.rotate(byRadians: CGFloat(i) * .pi / 4)
+        ray.transform(using: transform as AffineTransform)
+        ray.fill()
+    }
 }
 
-func drawBotShapes(size: CGFloat, color: NSColor) {
+/// Menu bar mark: plain asterisk (the app appends a live "!" when a session
+/// is waiting — no static badge here so it never reads as a stuck alert).
+func drawSparkles(size: CGFloat, color: NSColor) {
+    asterisk(center: CGPoint(x: size * 0.5, y: size * 0.5),
+             outer: size * 0.315, width: size * 0.105, color: color)
+}
+
+/// App icon mark: asterisk with a status-ring badge, bottom-right.
+func drawBadgedAsterisk(size: CGFloat) {
     let s = size
-    color.setFill()
-
-    // Antenna: ball + stem.
-    NSBezierPath(ovalIn: CGRect(x: s * 0.455, y: s * 0.76, width: s * 0.09, height: s * 0.09)).fill()
-    NSBezierPath(
-        roundedRect: CGRect(x: s * 0.485, y: s * 0.66, width: s * 0.03, height: s * 0.12),
-        xRadius: s * 0.015, yRadius: s * 0.015).fill()
-
-    // Head.
-    NSBezierPath(
-        roundedRect: CGRect(x: s * 0.20, y: s * 0.18, width: s * 0.60, height: s * 0.50),
-        xRadius: s * 0.13, yRadius: s * 0.13).fill()
-
-    // Punch out eyes and mouth.
+    asterisk(center: CGPoint(x: s * 0.46, y: s * 0.54),
+             outer: s * 0.27, width: s * 0.095, color: .white)
+    // Badge on its own layer so the ring punch doesn't cut the gradient.
+    let badge = NSImage(size: NSSize(width: s, height: s))
+    badge.lockFocus()
+    NSColor.white.setFill()
+    NSBezierPath(ovalIn: CGRect(x: s * 0.62, y: s * 0.16, width: s * 0.26, height: s * 0.26)).fill()
     NSGraphicsContext.current!.compositingOperation = .destinationOut
-    let eye = s * 0.115
-    NSBezierPath(ovalIn: CGRect(x: s * 0.315, y: s * 0.435, width: eye, height: eye)).fill()
-    NSBezierPath(ovalIn: CGRect(x: s * 0.57, y: s * 0.435, width: eye, height: eye)).fill()
-    NSBezierPath(
-        roundedRect: CGRect(x: s * 0.375, y: s * 0.27, width: s * 0.25, height: s * 0.055),
-        xRadius: s * 0.0275, yRadius: s * 0.0275).fill()
+    NSBezierPath(ovalIn: CGRect(x: s * 0.655, y: s * 0.195, width: s * 0.19, height: s * 0.19)).fill()
     NSGraphicsContext.current!.compositingOperation = .sourceOver
+    NSBezierPath(ovalIn: CGRect(x: s * 0.685, y: s * 0.225, width: s * 0.13, height: s * 0.13)).fill()
+    badge.unlockFocus()
+    badge.draw(in: CGRect(x: 0, y: 0, width: s, height: s),
+               from: .zero, operation: .sourceOver, fraction: 1)
 }
 
 func drawAppIcon(size: CGFloat) {
@@ -54,7 +57,7 @@ func drawAppIcon(size: CGFloat) {
         ending: NSColor(srgbRed: 0.72, green: 0.35, blue: 0.18, alpha: 1))!    // #B85A2E
     gradient.draw(in: rounded, angle: -60)
 
-    drawSparkles(size: size, color: .white)
+    drawBadgedAsterisk(size: size)
 }
 
 func renderPNG(pixels: Int, draw: (CGFloat) -> Void) -> Data {
